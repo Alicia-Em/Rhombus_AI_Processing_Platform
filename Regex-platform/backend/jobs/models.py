@@ -1,6 +1,6 @@
 from django.db import models
 
-class Jobs(models.Model):
+class Job(models.Model):
     STATUS_CHOICES = [
         ("QUEUED", "Queued"),
         ("RUNNING", "Running"),
