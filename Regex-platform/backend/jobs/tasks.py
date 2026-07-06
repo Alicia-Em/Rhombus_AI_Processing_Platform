@@ -4,7 +4,7 @@ import re
 from .models import Job
 import anthropic
 from pyspark.sql.functions import col, regexp_replace
-from .redis_client import r
+from config.redis_client import r
 
 @shared_task
 def process_file(job_id):
@@ -16,20 +16,21 @@ def process_file(job_id):
         # RUN LLM
         language_prompt = r.get(job.natural_language_prompt)
         if language_prompt is None:
-            client = anthropic.Anthropic()
-            response = client.messages.create(
-                model="claude-3-5-sonnet-latest",
-                max_tokens=1024,
-                messages=[
-                    {"role": "user",
-                    "content": (
-                        "Convert this request into a single valid Python regex string."
-                        f"Return only the regex pattern, no explanation, no markdown for {job.natural_language_prompt}"
-                        ),
-                    }
-                ],
-            )
-            regex = response.content[0].text.strip()
+            #client = anthropic.Anthropic()
+            #response = client.messages.create(
+            #    model="claude-3-5-sonnet-latest",
+            #    max_tokens=1024,
+            #    messages=[
+            #        {"role": "user",
+            #        "content": (
+            #            "Convert this request into a single valid Python regex string."
+            #            f"Return only the regex pattern, no explanation, no markdown for {job.natural_language_prompt}"
+            #            ),
+            #        }
+            #    ],
+            #)
+            #regex = response.content[0].text.strip()
+            regex = r"[\w\.-]+@[\w\.-]+\.\w+"
             r.set(job.natural_language_prompt, regex)
         else:
             regex = language_prompt
@@ -44,7 +45,7 @@ def process_file(job_id):
             regexp_replace(
                 col(job.target_column),
                 job.regex_pattern,
-                job.replacement_text
+                job.replacement_value
             )
         )
         output_path = f"media/processed/jobs_{job.id}"
@@ -53,9 +54,6 @@ def process_file(job_id):
         job.result_file = output_path
         job.status = "SUCCESS"
         job.save()
-        # Run Spark
-        # Save Results
-        # Update Progress
         return f"Finished job {job_id}"
     except Exception as e:
         job.status = "FAILED"

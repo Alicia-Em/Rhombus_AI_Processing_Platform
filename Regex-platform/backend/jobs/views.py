@@ -2,9 +2,19 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import generics
 from .models import Job
 from .serializers import JobSerializer
 from .tasks import process_file
+
+class UploadFileView(generics.CreateAPIView):
+    queryset = Job.objects.all()
+    serializer_class = JobSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    def perform_create(self, serializer):
+        job = serializer.save()
+        process_file.delay(job.id)
+
 
 @api_view(["GET"])
 def job_status(request, job_id):
